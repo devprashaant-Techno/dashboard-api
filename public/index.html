@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Live Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: sans-serif; background: #f4f6f9; color: #333; padding: 24px; }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    .subtitle { color: #888; font-size: 13px; margin-bottom: 24px; }
+    .cards { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+    .card { background: white; border-radius: 12px; padding: 20px 24px; min-width: 160px; flex: 1; border: 1px solid #e5e7eb; }
+    .card .label { font-size: 12px; color: #888; margin-bottom: 6px; }
+    .card .value { font-size: 28px; font-weight: 500; color: #111; }
+    table { background: white; width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb; }
+    th { background: #f9fafb; text-align: left; padding: 10px 16px; font-size: 12px; color: #555; font-weight: 500; }
+    td { padding: 10px 16px; font-size: 14px; border-top: 1px solid #f0f0f0; }
+    .badge { display: inline-block; background: #e8f4e8; color: #2d7a2d; font-size: 11px; padding: 2px 8px; border-radius: 20px; }
+    .refresh { font-size: 12px; color: #aaa; margin-top: 16px; text-align: right; }
+    .dot { display: inline-block; width: 8px; height: 8px; background: #22c55e; border-radius: 50%; margin-right: 6px; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  </style>
+</head>
+<body>
+  <h1><span class="dot"></span>Live Data Dashboard</h1>
+  <p class="subtitle" id="last-updated">Connecting...</p>
+
+  <div class="cards">
+    <div class="card">
+      <div class="label">Total records</div>
+      <div class="value" id="total">—</div>
+    </div>
+    <div class="card">
+      <div class="label">Today's entries</div>
+      <div class="value" id="today">—</div>
+    </div>
+    <div class="card">
+      <div class="label">Last 7 days</div>
+      <div class="value" id="week">—</div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Added</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="table-body"></tbody>
+  </table>
+
+  <p class="refresh">Auto-refreshing every 5 seconds</p>
+
+  <script>
+    const API = '/metrics';
+
+    async function fetchMetrics() {
+      try {
+        const res = await fetch(API);
+        const data = await res.json();
+
+        document.getElementById('total').textContent = data.totalRecords;
+
+        const todayStr = new Date().toISOString().split('T')[0];
+        const todayCount = data.dailySummary.find(d =>
+          new Date(d.date).toISOString().split('T')[0] === todayStr
+        );
+        document.getElementById('today').textContent = todayCount?.count || 0;
+
+        const weekTotal = data.dailySummary.reduce((sum, d) => sum + parseInt(d.count), 0);
+        document.getElementById('week').textContent = weekTotal;
+
+        document.getElementById('table-body').innerHTML = data.latestEntries.map(row => `
+          <tr>
+            <td>${row.name}</td>
+            <td>${row.email}</td>
+            <td>${new Date(row.created_at).toLocaleString()}</td>
+            <td><span class="badge">active</span></td>
+          </tr>
+        `).join('');
+
+        document.getElementById('last-updated').textContent =
+          'Last updated: ' + new Date(data.lastUpdated).toLocaleTimeString();
+
+      } catch (err) {
+        document.getElementById('last-updated').textContent = 'Connection error — retrying...';
+      }
+    }
+
+    fetchMetrics();
+    setInterval(fetchMetrics, 5000);
+  </script>
+</body>
+</html>
