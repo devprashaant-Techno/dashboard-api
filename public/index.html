@@ -1,97 +1,516 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Live Dashboard</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: sans-serif; background: #f4f6f9; color: #333; padding: 24px; }
-    h1 { font-size: 22px; margin-bottom: 8px; }
-    .subtitle { color: #888; font-size: 13px; margin-bottom: 24px; }
-    .cards { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
-    .card { background: white; border-radius: 12px; padding: 20px 24px; min-width: 160px; flex: 1; border: 1px solid #e5e7eb; }
-    .card .label { font-size: 12px; color: #888; margin-bottom: 6px; }
-    .card .value { font-size: 28px; font-weight: 500; color: #111; }
-    table { background: white; width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb; }
-    th { background: #f9fafb; text-align: left; padding: 10px 16px; font-size: 12px; color: #555; font-weight: 500; }
-    td { padding: 10px 16px; font-size: 14px; border-top: 1px solid #f0f0f0; }
-    .badge { display: inline-block; background: #e8f4e8; color: #2d7a2d; font-size: 11px; padding: 2px 8px; border-radius: 20px; }
-    .refresh { font-size: 12px; color: #aaa; margin-top: 16px; text-align: right; }
-    .dot { display: inline-block; width: 8px; height: 8px; background: #22c55e; border-radius: 50%; margin-right: 6px; animation: pulse 1.5s infinite; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Distributor Performance Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:#0b0f1a; --surface:#131929; --surface2:#1c2438; --border:#263044;
+  --accent:#f59e0b; --accent2:#10b981; --danger:#ef4444; --info:#60a5fa;
+  --purple:#a78bfa; --pink:#ec4899;
+  --text:#e2e8f0; --muted:#94a3b8; --dim:#64748b;
+  --r:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;min-height:100vh;}
+
+.header{background:linear-gradient(135deg,#0b0f1a 0%,#161e30 100%);border-bottom:1px solid var(--border);
+  padding:14px 28px;display:flex;align-items:center;gap:18px;position:sticky;top:0;z-index:200;box-shadow:0 2px 20px rgba(0,0,0,.5);}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:3px;color:var(--accent);}
+.logo-sub{color:var(--muted);font-size:13px;font-weight:500;margin-left:10px;}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:12px;}
+.header-period{background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);
+  border-radius:6px;padding:5px 13px;font-size:12px;color:var(--accent);font-weight:800;letter-spacing:.5px;}
+.refresh-badge{background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3);
+  border-radius:6px;padding:5px 13px;font-size:12px;color:var(--accent2);font-weight:700;display:flex;align-items:center;gap:6px;}
+.live-dot{width:7px;height:7px;background:var(--accent2);border-radius:50%;animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+.selector-bar{padding:12px 28px;background:var(--surface);border-bottom:2px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+.sel-left{display:flex;align-items:center;gap:10px;}
+.sel-lbl{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);}
+.dist-select{background:var(--surface2);border:1.5px solid var(--border);color:#f1f5f9;
+  font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;padding:8px 36px 8px 14px;
+  border-radius:8px;cursor:pointer;outline:none;min-width:280px;
+  appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;transition:border-color .2s;}
+.dist-select:hover,.dist-select:focus{border-color:var(--accent);}
+.dist-select option{background:#1c2438;}
+.nav-btns{display:flex;gap:6px;}
+.nav-btn{background:var(--surface2);border:1.5px solid var(--border);color:var(--muted);
+  border-radius:7px;width:34px;height:34px;cursor:pointer;font-size:18px;
+  display:flex;align-items:center;justify-content:center;transition:all .15s;font-weight:700;}
+.nav-btn:hover{border-color:var(--accent);color:var(--accent);}
+.dist-counter{font-size:13px;font-weight:700;color:var(--muted);}
+
+.panel{padding:22px 28px 40px;max-width:1400px;margin:0 auto;}
+
+.dist-hero{display:flex;align-items:flex-start;gap:18px;margin-bottom:22px;}
+.dist-icon{width:56px;height:56px;border-radius:14px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Bebas Neue',sans-serif;font-size:22px;color:#000;
+  background:linear-gradient(135deg,var(--accent),#d97706);box-shadow:0 4px 15px rgba(245,158,11,.3);}
+.hero-info{flex:1;}
+.dist-name-h{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:1.5px;color:#f8fafc;}
+.hero-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px;}
+.chip{padding:4px 13px;border-radius:20px;font-size:12px;font-weight:800;letter-spacing:.4px;}
+.chip-months{background:rgba(96,165,250,.12);border:1px solid rgba(96,165,250,.3);color:var(--info);}
+.chip-up{background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3);color:var(--accent2);}
+.chip-down{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:var(--danger);}
+.chip-neu{background:rgba(148,163,184,.1);border:1px solid rgba(148,163,184,.25);color:var(--muted);}
+
+.kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:22px;}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;position:relative;overflow:hidden;}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.kpi.kpi-rev::before{background:var(--accent);}
+.kpi.kpi-ord::before{background:var(--purple);}
+.kpi.kpi-qty::before{background:var(--info);}
+.kpi.kpi-onb::before{background:var(--accent2);}
+.kpi.kpi-chu::before{background:var(--danger);}
+.kpi.kpi-kyc::before{background:var(--purple);}
+.kpi-lbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);margin-bottom:7px;}
+.kpi-val{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:1px;line-height:1;color:#f1f5f9;}
+.kpi-sub{font-size:12px;font-weight:700;margin-top:5px;color:var(--dim);}
+
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+.chart-card{background:var(--surface);border:1px solid #2a3a55;border-radius:var(--r);padding:18px 20px;}
+.chart-card.full{grid-column:1/-1;}
+.ct{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);
+  margin-bottom:14px;display:flex;align-items:center;gap:9px;}
+.ct::before{content:'';width:4px;height:15px;border-radius:2px;flex-shrink:0;background:var(--accent);}
+.ct.ct-orders::before{background:var(--purple);}
+.ct.ct-qty::before{background:var(--info);}
+.ct.ct-mom::before{background:var(--accent);}
+.ct.ct-ret::before{background:var(--accent2);}
+.cw{position:relative;height:210px;}
+
+.styles-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px;}
+.style-card{background:var(--surface);border:1px solid #2a3a55;border-radius:var(--r);padding:16px 18px;}
+.style-tag{display:inline-block;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;
+  padding:3px 10px;border-radius:5px;margin-bottom:12px;}
+.tag-all{background:rgba(245,158,11,.15);color:var(--accent);}
+.tag-men{background:rgba(96,165,250,.15);color:var(--info);}
+.tag-women{background:rgba(236,72,153,.15);color:var(--pink);}
+.tag-kids{background:rgba(167,139,250,.15);color:var(--purple);}
+.style-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(38,48,68,.7);}
+.style-row:last-child{border-bottom:none;}
+.sr-rank{font-family:'Bebas Neue',sans-serif;font-size:14px;color:var(--dim);width:22px;flex-shrink:0;}
+.sr-name{font-weight:800;font-size:13px;flex:1;color:#f1f5f9;}
+.sr-bar-wrap{flex:1.5;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;}
+.sr-bar{height:100%;border-radius:3px;}
+.bar-all{background:linear-gradient(90deg,var(--accent),#d97706);}
+.bar-men{background:linear-gradient(90deg,var(--info),#3b82f6);}
+.bar-women{background:linear-gradient(90deg,var(--pink),#be185d);}
+.bar-kids{background:linear-gradient(90deg,var(--purple),#7c3aed);}
+.sr-amt{font-size:12px;color:var(--muted);font-weight:800;width:68px;text-align:right;flex-shrink:0;}
+.no-data{color:var(--dim);font-size:12px;font-style:italic;padding:8px 0;}
+
+/* Loading & Error States */
+.loading-state{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:400px;gap:16px;}
+.spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);
+  border-radius:50%;animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-txt{color:var(--muted);font-size:14px;font-weight:600;}
+.error-state{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);
+  border-radius:var(--r);padding:24px;margin:24px;text-align:center;}
+.error-state h3{color:var(--danger);font-size:16px;margin-bottom:8px;}
+.error-state p{color:var(--muted);font-size:13px;margin-bottom:12px;}
+.retry-btn{background:var(--danger);color:#fff;border:none;border-radius:6px;
+  padding:8px 20px;cursor:pointer;font-size:13px;font-weight:700;font-family:'DM Sans',sans-serif;}
+
+/* Last updated bar */
+.update-bar{background:var(--surface);border-bottom:1px solid var(--border);
+  padding:6px 28px;font-size:11px;color:var(--dim);font-weight:600;display:flex;align-items:center;gap:8px;}
+
+@media(max-width:1100px){.kpi-row{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:900px){
+  .kpi-row{grid-template-columns:repeat(2,1fr);}
+  .chart-grid,.styles-grid{grid-template-columns:1fr;}
+  .chart-card.full{grid-column:1;}
+}
+</style>
 </head>
 <body>
-  <h1><span class="dot"></span>Live Data Dashboard</h1>
-  <p class="subtitle" id="last-updated">Connecting...</p>
 
-  <div class="cards">
-    <div class="card">
-      <div class="label">Total records</div>
-      <div class="value" id="total">—</div>
+<div class="header">
+  <div class="logo">Distributor Analytics<span class="logo-sub">Performance Dashboard</span></div>
+  <div class="header-right">
+    <div class="refresh-badge"><span class="live-dot"></span>Live — Auto Refresh</div>
+    <div class="header-period" id="periodLabel">Loading...</div>
+  </div>
+</div>
+
+<div class="update-bar">
+  Last updated: <span id="lastUpdated">—</span> &nbsp;|&nbsp; Next refresh in <span id="countdown">30</span>s
+</div>
+
+<div class="selector-bar">
+  <div class="sel-left">
+    <span class="sel-lbl">Distributor</span>
+    <select class="dist-select" id="distSel"></select>
+    <div class="nav-btns">
+      <button class="nav-btn" id="prevBtn">&#8249;</button>
+      <button class="nav-btn" id="nextBtn">&#8250;</button>
     </div>
-    <div class="card">
-      <div class="label">Today's entries</div>
-      <div class="value" id="today">—</div>
-    </div>
-    <div class="card">
-      <div class="label">Last 7 days</div>
-      <div class="value" id="week">—</div>
+  </div>
+  <div class="dist-counter" id="distCounter"></div>
+</div>
+
+<div class="panel" id="panel">
+  <div class="loading-state">
+    <div class="spinner"></div>
+    <div class="loading-txt">Connecting to database...</div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────────
+const API = '/metrics';
+const REFRESH_INTERVAL = 30; // seconds
+
+// ── STATE ───────────────────────────────────────────────────────────
+let ALL_DISTS = [];
+let DIST_DATA = {};
+let currentIdx = 0;
+const charts = {};
+let countdown = REFRESH_INTERVAL;
+
+// ── HELPERS ─────────────────────────────────────────────────────────
+function fmtAmt(n){
+  if(!n || isNaN(n)) return '₹0';
+  n = parseFloat(n);
+  if(n>=10000000) return '₹'+(n/10000000).toFixed(2)+' Cr';
+  if(n>=100000)   return '₹'+(n/100000).toFixed(2)+' L';
+  if(n>=1000)     return '₹'+Math.round(n/1000)+'K';
+  return '₹'+n.toLocaleString('en-IN');
+}
+function fmtFull(n){ return '₹'+(parseFloat(n)||0).toLocaleString('en-IN'); }
+function initials(s){ return (s||'').split(/[\s&]+/).filter(x=>x).map(x=>x[0].toUpperCase()).slice(0,2).join(''); }
+function num(v){ return parseFloat(v)||0; }
+function int(v){ return parseInt(v)||0; }
+
+const TOOLTIP_BASE = {
+  backgroundColor:'#1a2540', titleColor:'#f1f5f9',
+  borderColor:'#334155', borderWidth:1,
+  titleFont:{size:13,weight:'700',family:"'DM Sans',sans-serif"},
+  bodyFont:{size:14,weight:'700',family:"'DM Sans',sans-serif"},
+  padding:12, cornerRadius:8,
+};
+function axisStyle(yCb){
+  const t={color:'#cbd5e1',font:{size:12,weight:'700',family:"'DM Sans',sans-serif"}};
+  return {
+    x:{grid:{color:'rgba(255,255,255,0.06)'},ticks:t,border:{color:'#334155'}},
+    y:{grid:{color:'rgba(255,255,255,0.06)'},ticks:{...t,callback:yCb||undefined},border:{color:'#334155'}}
+  };
+}
+
+// ── CHART BUILDERS ──────────────────────────────────────────────────
+function dc(id){ if(charts[id]){charts[id].destroy();delete charts[id];} }
+
+function buildRevChart(id, series){
+  dc(id); const ctx=document.getElementById(id); if(!ctx||!series.length) return;
+  charts[id]=new Chart(ctx,{
+    type:'bar',
+    data:{labels:series.map(r=>r.month),
+          datasets:[{data:series.map(r=>num(r.revenue)),backgroundColor:'rgba(245,158,11,0.75)',
+            borderColor:'#f59e0b',borderWidth:1,borderRadius:6,hoverBackgroundColor:'#f59e0b'}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{...TOOLTIP_BASE,bodyColor:'#f59e0b',
+        callbacks:{label:c=>' '+fmtFull(c.raw)}}},
+      scales:axisStyle(v=>fmtAmt(v))}
+  });
+}
+
+function buildOrdersChart(id, series){
+  dc(id); const ctx=document.getElementById(id); if(!ctx||!series.length) return;
+  charts[id]=new Chart(ctx,{
+    type:'bar',
+    data:{labels:series.map(r=>r.month),
+          datasets:[{data:series.map(r=>int(r.orders)),
+            backgroundColor:'rgba(167,139,250,0.7)',borderColor:'#a78bfa',
+            borderWidth:1,borderRadius:6,hoverBackgroundColor:'#a78bfa'}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{...TOOLTIP_BASE,bodyColor:'#a78bfa',
+        callbacks:{label:c=>' '+c.raw+' orders'}}},
+      scales:axisStyle(v=>v+' orders')}
+  });
+}
+
+function buildQtyChart(id, series){
+  dc(id); const ctx=document.getElementById(id); if(!ctx||!series.length) return;
+  charts[id]=new Chart(ctx,{
+    type:'line',
+    data:{labels:series.map(r=>r.month),
+          datasets:[{data:series.map(r=>int(r.qty)),borderColor:'#60a5fa',
+            backgroundColor:'rgba(96,165,250,0.1)',pointBackgroundColor:'#60a5fa',
+            pointRadius:5,pointHoverRadius:7,fill:true,tension:0.4}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{...TOOLTIP_BASE,bodyColor:'#60a5fa',
+        callbacks:{label:c=>' '+c.raw+' units'}}},
+      scales:axisStyle()}
+  });
+}
+
+function buildMoMChart(id, series){
+  dc(id); const ctx=document.getElementById(id); if(!ctx||!series.length) return;
+  const filtered=series.filter(r=>r.mom!==null&&r.mom!==undefined);
+  const data=filtered.map(r=>num(r.mom));
+  if(!data.length) return;
+  charts[id]=new Chart(ctx,{
+    type:'bar',
+    data:{labels:filtered.map(r=>r.month),
+          datasets:[{data,backgroundColor:data.map(v=>v>=0?'rgba(16,185,129,0.75)':'rgba(239,68,68,0.75)'),
+            borderColor:data.map(v=>v>=0?'#10b981':'#ef4444'),borderWidth:1,borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{...TOOLTIP_BASE,
+        callbacks:{label:c=>' '+(c.raw>0?'+':'')+c.raw.toFixed(1)+'%'}}},
+      scales:axisStyle(v=>v+'%')}
+  });
+}
+
+function buildRetailerChart(id, onbS, churS){
+  dc(id); const ctx=document.getElementById(id); if(!ctx) return;
+  if(!onbS.length&&!churS.length){
+    ctx.parentNode.innerHTML='<div style="color:var(--dim);font-size:13px;padding:50px 0;text-align:center;font-weight:600;">No retailer data available</div>';
+    return;
+  }
+  const allMonths=[...new Set([...onbS.map(x=>x.month),...churS.map(x=>x.month)])].sort();
+  const om={},cm={};
+  onbS.forEach(x=>om[x.month]=int(x.count));
+  churS.forEach(x=>cm[x.month]=int(x.count));
+  const odata=allMonths.map(m=>om[m]||0);
+  const cdata=allMonths.map(m=>cm[m]||0);
+  const ndata=allMonths.map((_,i)=>odata[i]-cdata[i]);
+  charts[id]=new Chart(ctx,{
+    type:'bar',
+    data:{labels:allMonths,
+          datasets:[
+            {label:'Onboarded',data:odata,backgroundColor:'rgba(16,185,129,0.7)',borderRadius:4},
+            {label:'Churned',data:cdata,backgroundColor:'rgba(239,68,68,0.65)',borderRadius:4},
+            {label:'Net',data:ndata,type:'line',borderColor:'#f59e0b',pointBackgroundColor:'#f59e0b',
+             borderWidth:2.5,pointRadius:5,tension:0.3,yAxisID:'y1'},
+          ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{color:'#e2e8f0',font:{size:12,weight:'700'},boxWidth:14,padding:16}},
+        tooltip:{...TOOLTIP_BASE,bodyColor:'#e2e8f0'}},
+      scales:{x:axisStyle().x,y:{...axisStyle().y},
+              y1:{...axisStyle().y,position:'right',grid:{drawOnChartArea:false}}}}
+  });
+}
+
+function styleList(entries, barCls){
+  if(!entries||!entries.length) return '<div class="no-data">No style data available</div>';
+  const max=num(entries[0].revenue||entries[0].qty||1);
+  return entries.map((s,i)=>`
+    <div class="style-row">
+      <span class="sr-rank">#${i+1}</span>
+      <span class="sr-name">${s.style||s.name||'Unknown'}</span>
+      <div class="sr-bar-wrap"><div class="sr-bar ${barCls}" style="width:${Math.round(num(s.revenue||s.qty)/max*100)}%"></div></div>
+      <span class="sr-amt">${fmtAmt(s.revenue||s.qty||0)}</span>
+    </div>`).join('');
+}
+
+// ── RENDER ──────────────────────────────────────────────────────────
+function render(){
+  if(!ALL_DISTS.length) return;
+  const dist = ALL_DISTS[currentIdx];
+  const d = DIST_DATA[dist];
+  if(!d) return;
+
+  document.getElementById('distCounter').textContent = `${currentIdx+1} of ${ALL_DISTS.length}`;
+
+  const totalRev = num(d.total_revenue);
+  const totalOrders = int(d.total_orders);
+  const totalQty = int(d.total_qty);
+  const totalOnb = int(d.total_onboarded);
+  const totalChurn = int(d.total_churned);
+  const kycDone = int(d.kyc_done);
+  const netR = totalOnb - totalChurn;
+  const lastMom = d.monthly_series && d.monthly_series.length > 1 ? num(d.monthly_series[d.monthly_series.length-1].mom) : null;
+  const momStr = lastMom===null ? 'N/A' : (lastMom>0?'+':'')+lastMom.toFixed(1)+'%';
+  const momChip = lastMom===null ? 'chip-neu' : lastMom>=0 ? 'chip-up' : 'chip-down';
+  const netChip = netR>=0 ? 'chip-up' : 'chip-down';
+  const months = d.monthly_series ? d.monthly_series.length : 0;
+  const lastMonth = d.monthly_series && months ? d.monthly_series[months-1] : null;
+
+  document.getElementById('panel').innerHTML = `
+  <div class="dist-hero">
+    <div class="dist-icon">${initials(dist)}</div>
+    <div class="hero-info">
+      <div class="dist-name-h">${dist}</div>
+      <div class="hero-chips">
+        <span class="chip chip-months">${months} months active</span>
+        <span class="chip ${momChip}">Latest MoM: ${momStr}</span>
+        <span class="chip chip-up">Onboarded: ${totalOnb}</span>
+        <span class="chip chip-down">Churned: ${totalChurn}</span>
+        <span class="chip ${netChip}">Net: ${netR>=0?'+':''}${netR}</span>
+      </div>
     </div>
   </div>
 
-  <table>
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Email</th>
-        <th>Added</th>
-        <th>Status</th>
-      </tr>
-    </thead>
-    <tbody id="table-body"></tbody>
-  </table>
+  <div class="kpi-row">
+    <div class="kpi kpi-rev">
+      <div class="kpi-lbl">Total Revenue</div>
+      <div class="kpi-val">${fmtAmt(totalRev)}</div>
+      <div class="kpi-sub">${fmtFull(totalRev)}</div>
+    </div>
+    <div class="kpi kpi-ord">
+      <div class="kpi-lbl">Total Orders</div>
+      <div class="kpi-val" style="color:#c4b5fd">${totalOrders.toLocaleString('en-IN')}</div>
+      <div class="kpi-sub">Last month: ${lastMonth?int(lastMonth.orders):0} orders</div>
+    </div>
+    <div class="kpi kpi-qty">
+      <div class="kpi-lbl">Total Qty Sold</div>
+      <div class="kpi-val" style="color:#93c5fd">${totalQty.toLocaleString('en-IN')}</div>
+      <div class="kpi-sub">Last month: ${lastMonth?int(lastMonth.qty):0} units</div>
+    </div>
+    <div class="kpi kpi-onb">
+      <div class="kpi-lbl">Total Onboarded</div>
+      <div class="kpi-val" style="color:#6ee7b7">${totalOnb}</div>
+      <div class="kpi-sub">Net: ${netR>=0?'+':''}${netR} retailers</div>
+    </div>
+    <div class="kpi kpi-chu">
+      <div class="kpi-lbl">Total Churned</div>
+      <div class="kpi-val" style="color:#fca5a5">${totalChurn}</div>
+      <div class="kpi-sub">across ${months} months</div>
+    </div>
+    <div class="kpi kpi-kyc">
+      <div class="kpi-lbl">KYC Done</div>
+      <div class="kpi-val" style="color:#c4b5fd">${kycDone}</div>
+      <div class="kpi-sub">verified retailers</div>
+    </div>
+  </div>
 
-  <p class="refresh">Auto-refreshing every 5 seconds</p>
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="ct">Monthly Revenue (₹)</div>
+      <div class="cw"><canvas id="c_rev"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="ct ct-orders">Number of Orders MoM</div>
+      <div class="cw"><canvas id="c_ord"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="ct ct-qty">Quantity Sold MoM</div>
+      <div class="cw"><canvas id="c_qty"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="ct ct-mom">MoM % Revenue Change</div>
+      <div class="cw"><canvas id="c_mom"></canvas></div>
+    </div>
+    <div class="chart-card full">
+      <div class="ct ct-ret">Retailer Onboarding vs Churn</div>
+      <div class="cw" style="height:230px"><canvas id="c_ret"></canvas></div>
+    </div>
+  </div>
 
-  <script>
-    const API = '/metrics';
+  <div class="styles-grid">
+    <div class="style-card">
+      <span class="style-tag tag-all">Top Styles (Overall)</span>
+      ${styleList(d.top_styles_overall,'bar-all')}
+    </div>
+    <div class="style-card">
+      <span class="style-tag tag-men">Top Men's Styles</span>
+      ${styleList(d.top_styles_men,'bar-men')}
+    </div>
+    <div class="style-card">
+      <span class="style-tag tag-women">Top Women's Styles</span>
+      ${styleList(d.top_styles_women,'bar-women')}
+    </div>
+    <div class="style-card">
+      <span class="style-tag tag-kids">Top Kids' Styles</span>
+      ${styleList(d.top_styles_kids,'bar-kids')}
+    </div>
+  </div>`;
 
-    async function fetchMetrics() {
-      try {
-        const res = await fetch(API);
-        const data = await res.json();
+  requestAnimationFrame(()=>{
+    buildRevChart('c_rev', d.monthly_series||[]);
+    buildOrdersChart('c_ord', d.monthly_series||[]);
+    buildQtyChart('c_qty', d.monthly_series||[]);
+    buildMoMChart('c_mom', d.monthly_series||[]);
+    buildRetailerChart('c_ret', d.onboard_series||[], d.churn_series||[]);
+  });
+}
 
-        document.getElementById('total').textContent = data.totalRecords;
+// ── DATA FETCH ──────────────────────────────────────────────────────
+async function fetchData(){
+  try {
+    const res = await fetch(API);
+    if(!res.ok) throw new Error('API error '+res.status);
+    const data = await res.json();
 
-        const todayStr = new Date().toISOString().split('T')[0];
-        const todayCount = data.dailySummary.find(d =>
-          new Date(d.date).toISOString().split('T')[0] === todayStr
-        );
-        document.getElementById('today').textContent = todayCount?.count || 0;
+    // Auto-extract key metrics from API response
+    DIST_DATA = data.distributors || {};
+    ALL_DISTS = Object.keys(DIST_DATA).sort();
 
-        const weekTotal = data.dailySummary.reduce((sum, d) => sum + parseInt(d.count), 0);
-        document.getElementById('week').textContent = weekTotal;
-
-        document.getElementById('table-body').innerHTML = data.latestEntries.map(row => `
-          <tr>
-            <td>${row.name}</td>
-            <td>${row.email}</td>
-            <td>${new Date(row.created_at).toLocaleString()}</td>
-            <td><span class="badge">active</span></td>
-          </tr>
-        `).join('');
-
-        document.getElementById('last-updated').textContent =
-          'Last updated: ' + new Date(data.lastUpdated).toLocaleTimeString();
-
-      } catch (err) {
-        document.getElementById('last-updated').textContent = 'Connection error — retrying...';
-      }
+    // Update period label
+    if(data.period){
+      document.getElementById('periodLabel').textContent = data.period;
     }
 
-    fetchMetrics();
-    setInterval(fetchMetrics, 5000);
-  </script>
+    // Update last updated
+    document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
+
+    // Rebuild dropdown
+    const sel = document.getElementById('distSel');
+    const prevVal = sel.value;
+    sel.innerHTML = '';
+    ALL_DISTS.forEach((d,i)=>{
+      const o = document.createElement('option');
+      o.value = i; o.textContent = d;
+      sel.appendChild(o);
+    });
+    if(prevVal) sel.value = prevVal;
+
+    render();
+  } catch(err){
+    document.getElementById('panel').innerHTML = `
+      <div class="error-state">
+        <h3>Could not connect to database</h3>
+        <p>Make sure your Node.js server is running: <code>node index.js</code></p>
+        <p style="color:var(--dim);font-size:12px;margin-top:6px;">${err.message}</p>
+        <button class="retry-btn" onclick="fetchData()">Retry Now</button>
+      </div>`;
+  }
+}
+
+// ── COUNTDOWN & AUTO-REFRESH ─────────────────────────────────────────
+function startCountdown(){
+  countdown = REFRESH_INTERVAL;
+  const tick = setInterval(()=>{
+    countdown--;
+    const el = document.getElementById('countdown');
+    if(el) el.textContent = countdown;
+    if(countdown <= 0){
+      clearInterval(tick);
+      fetchData().then(startCountdown);
+    }
+  }, 1000);
+}
+
+// ── NAV ─────────────────────────────────────────────────────────────
+document.getElementById('prevBtn').addEventListener('click',()=>{
+  currentIdx=(currentIdx-1+ALL_DISTS.length)%ALL_DISTS.length;
+  document.getElementById('distSel').value=currentIdx;
+  render();
+});
+document.getElementById('nextBtn').addEventListener('click',()=>{
+  currentIdx=(currentIdx+1)%ALL_DISTS.length;
+  document.getElementById('distSel').value=currentIdx;
+  render();
+});
+document.getElementById('distSel').addEventListener('change',function(){
+  currentIdx=parseInt(this.value); render();
+});
+
+// ── INIT ─────────────────────────────────────────────────────────────
+fetchData().then(startCountdown);
+</script>
 </body>
 </html>
