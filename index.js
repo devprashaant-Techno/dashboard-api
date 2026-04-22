@@ -15,24 +15,17 @@ const pool = new Pool({
 app.get('/metrics', async (req, res) => {
   const client = await pool.connect();
   try {
-    const total = await client.query('SELECT COUNT(*) as total FROM students');
-    const latest = await client.query('SELECT * FROM students ORDER BY created_at DESC LIMIT 5');
-    const daily = await client.query(`
-      SELECT DATE(created_at) as date, COUNT(*) as count
-      FROM students
-      GROUP BY DATE(created_at)
-      ORDER BY date DESC LIMIT 7
-    `);
+    const metrics  = await client.query('SELECT * FROM dist_metrics ORDER BY total_orders DESC');
+    const monthly  = await client.query('SELECT * FROM dist_monthly ORDER BY month');
+    const products = await client.query('SELECT * FROM dist_top_products ORDER BY total_qty DESC');
 
     res.json({
-      totalRecords: total.rows[0].total,
-      latestEntries: latest.rows,
-      dailySummary: daily.rows,
-      lastUpdated: new Date()
+      metrics:      metrics.rows,
+      monthly:      monthly.rows,
+      top_products: products.rows,
+      lastUpdated:  new Date()
     });
-
   } catch (err) {
-    console.error('Metrics error:', err.message);
     res.status(500).json({ error: err.message });
   } finally {
     client.release();

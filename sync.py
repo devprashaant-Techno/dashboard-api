@@ -4,7 +4,13 @@ import os
 import warnings
 warnings.filterwarnings('ignore')
 
-# ── All credentials from environment variables ────────────────────────────
+# Load from environment variables or .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except:
+    pass
+
 DO_URL   = os.environ.get("DO_DB_URL")
 SUPA_URL = os.environ.get("SUPABASE_DB_URL")
 
@@ -13,14 +19,13 @@ supa_engine = create_engine(SUPA_URL, connect_args={"sslmode": "require"})
 
 def sync():
     print("Extracting from DigitalOcean...")
-
     dist   = pd.read_sql('SELECT * FROM "tc_distributor"', do_engine)
     orders = pd.read_sql('SELECT * FROM "order"', do_engine)
     line   = pd.read_sql('SELECT order_id, title, quantity FROM "line_item"', do_engine)
 
     orders = orders.rename(columns={'id':'order_id'})
-    dist_small = dist[['id','business_name','state','city','is_active']]
-    df = orders.merge(dist_small, left_on='distributor_id', right_on='id', how='left')
+    df = orders.merge(dist[['id','business_name','state','city','is_active']],
+                      left_on='distributor_id', right_on='id', how='left')
     df['created_at'] = pd.to_datetime(df['created_at'], utc=True)
     df['month'] = df['created_at'].dt.to_period('M').astype(str)
 
@@ -50,14 +55,3 @@ def sync():
     with supa_engine.connect() as conn:
         conn.execute(text("DROP TABLE IF EXISTS dist_metrics CASCADE"))
         conn.execute(text("DROP TABLE IF EXISTS dist_monthly CASCADE"))
-        conn.execute(text("DROP TABLE IF EXISTS dist_top_products CASCADE"))
-        conn.commit()
-
-    metrics.to_sql('dist_metrics', supa_engine, if_exists='replace', index=False)
-    monthly.to_sql('dist_monthly', supa_engine, if_exists='replace', index=False)
-    top_products.to_sql('dist_top_products', supa_engine, if_exists='replace', index=False)
-
-    print(f"✓ Synced: {len(metrics)} distributors, {len(monthly)} monthly rows, {len(top_products)} products")
-
-if __name__ == "__main__":
-    sync()
