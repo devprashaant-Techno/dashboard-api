@@ -21,5 +21,6 @@ jobs:
 
       - name: Run sync
         env:
+          DO_DB_URL: ${{ secrets.DO_DB_URL }}
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: python sync.py
